@@ -29,7 +29,7 @@ Three built-in games controlled via IR remote:
 
 ## Hardware
 
-- **Microcontroller**: Arduino Nano (main) + Arduino Nano (IR co-processor)
+- **Microcontrollers**: Arduino Nano (main) + Arduino Nano (IR co-processor)
 - **Display**: 154 WS2812B LEDs arranged as 15×5 grid
 - **RTC**: DS3231 real-time clock module
 - **Input**: IR receiver (handled by co-processor)
