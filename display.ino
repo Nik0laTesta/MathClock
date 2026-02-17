@@ -1,0 +1,146 @@
+/*
+ * DISPLAY FUNCTIONS TAB  (v20)
+ *
+ * Changes from v19:
+ * - safeShow() simplified: IR is now handled by a separate co-processor Nano,
+ *   so there is no IRremote interrupt to protect on this Nano. FastLED.show()
+ *   can be called freely without waiting for an IR idle window.
+ */
+
+// 3x5 pixel font for numbers, operators, and full alphabet
+// Each character is 3 bits wide x 5 bits tall
+// Stored in flash memory to save RAM
+const uint8_t font[42][5] PROGMEM = {
+  // Numbers 0-9
+  {0x7,0x5,0x5,0x5,0x7}, // 0
+  {0x2,0x2,0x2,0x2,0x2}, // 1
+  {0x7,0x1,0x7,0x4,0x7}, // 2
+  {0x7,0x1,0x3,0x1,0x7}, // 3
+  {0x5,0x5,0x7,0x1,0x1}, // 4
+  {0x7,0x4,0x7,0x1,0x7}, // 5
+  {0x7,0x4,0x7,0x5,0x7}, // 6
+  {0x7,0x1,0x1,0x1,0x1}, // 7
+  {0x7,0x5,0x7,0x5,0x7}, // 8
+  {0x7,0x5,0x7,0x1,0x7}, // 9
+
+  // Math operators
+  {0x0,0x2,0x7,0x2,0x0}, // + (10)
+  {0x0,0x0,0x7,0x0,0x0}, // - (11)
+  {0x0,0x5,0x2,0x5,0x0}, // x (12)
+  {0x0,0x1,0x2,0x4,0x0}, // / (13)
+
+  // Alphabet A-Z (14-39)
+  {0x2,0x5,0x7,0x5,0x5}, // A (14)
+  {0x6,0x5,0x6,0x5,0x6}, // B (15)
+  {0x3,0x4,0x4,0x4,0x3}, // C (16)
+  {0x6,0x5,0x5,0x5,0x6}, // D (17)
+  {0x7,0x4,0x6,0x4,0x7}, // E (18)
+  {0x7,0x4,0x6,0x4,0x4}, // F (19)
+  {0x3,0x4,0x5,0x5,0x3}, // G (20)
+  {0x5,0x5,0x7,0x5,0x5}, // H (21)
+  {0x7,0x2,0x2,0x2,0x7}, // I (22)
+  {0x7,0x1,0x1,0x5,0x2}, // J (23)
+  {0x5,0x5,0x6,0x5,0x5}, // K (24)
+  {0x4,0x4,0x4,0x4,0x7}, // L (25)
+  {0x5,0x7,0x7,0x5,0x5}, // M (26)
+  {0x5,0x7,0x5,0x5,0x5}, // N (27)
+  {0x2,0x5,0x5,0x5,0x2}, // O (28)
+  {0x7,0x5,0x7,0x4,0x4}, // P (29)
+  {0x2,0x5,0x5,0x6,0x3}, // Q (30)
+  {0x6,0x5,0x6,0x5,0x5}, // R (31)
+  {0x3,0x4,0x2,0x1,0x6}, // S (32)
+  {0x7,0x2,0x2,0x2,0x2}, // T (33)
+  {0x5,0x5,0x5,0x5,0x2}, // U (34)
+  {0x5,0x5,0x5,0x5,0x2}, // V (35)
+  {0x5,0x5,0x7,0x7,0x5}, // W (36)
+  {0x5,0x5,0x2,0x5,0x5}, // X (37)
+  {0x5,0x5,0x2,0x2,0x2}, // Y (38)
+  {0x7,0x1,0x2,0x4,0x7}, // Z (39)
+
+  // Special characters
+  {0x5,0x6,0x4,0x6,0x5}, // < (40)
+  {0x0,0x7,0x0,0x7,0x0}  // = (41)
+};
+
+/**
+ * Draw a static text row (top or bottom half)
+ */
+void drawStaticRow(const char* text, bool isTop, CRGB col) {
+  for (int i = 0; text[i] != '\0' && i < 5; i++) {
+    if (text[i] != ' ') {
+      drawPixelChar(text[i], i * CHAR_WIDTH, col, isTop, 0);
+    }
+  }
+}
+
+/**
+ * Draw a single character on the grid
+ */
+void drawPixelChar(char c, int x, CRGB col, bool isTop, int yOffset) {
+  // Special case: vertical bar for game player
+  if (c == '|') {
+    drawPixelToGrid(x, yOffset,     col, isTop);
+    drawPixelToGrid(x, yOffset + 1, col, isTop);
+    return;
+  }
+
+  int fontIdx = getCharIdx(c);
+  if (fontIdx == -1) return;
+
+  for (int row = 0; row < 5; row++) {
+    uint8_t rowData = pgm_read_byte(&font[fontIdx][row]);
+    for (int bit = 0; bit < 3; bit++) {
+      if (bitRead(rowData, 2 - bit)) {
+        drawPixelToGrid(x + bit, row + yOffset, col, isTop);
+      }
+    }
+  }
+}
+
+/**
+ * Draw a single pixel on the grid
+ */
+void drawPixelToGrid(int x, int y, CRGB col, bool isTop) {
+  if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) return;
+
+  int startIdx    = isTop ? TOP_HALF_START : BOT_HALF_START;
+  int columnGroup = x / CHAR_WIDTH;
+  int columnInGroup = x % CHAR_WIDTH;
+  int ledPos = startIdx + (columnGroup * 15) + (columnInGroup * 5) + y;
+
+  if (ledPos >= 0 && ledPos < NUM_LEDS) {
+    leds[ledPos] = col;
+  }
+}
+
+/**
+ * Adjust LED brightness based on ambient light from LDR sensor
+ */
+void adjustBrightness() {
+  int ldrValue  = analogRead(LDR_PIN);
+  int brightness = map(ldrValue, 0, 1023, BRIGHTNESS_MIN, BRIGHTNESS_MAX);
+  FastLED.setBrightness(brightness);
+}
+
+/**
+ * Draw loading bar (used by physical button hold indicator)
+ */
+void drawLoadingBar(int cols) {
+  cols = constrain(cols, 0, GRID_WIDTH);
+  for (int x = 0; x < GRID_WIDTH; x++) {
+    CRGB color = (x < cols) ? CRGB::Yellow : CRGB::Black;
+    drawPixelToGrid(x, GRID_HEIGHT - 1, color, true);
+  }
+  safeShow();
+}
+
+/**
+ * safeShow() – v20 simplified.
+ *
+ * IRremote is no longer running on this Nano (IR is handled by the
+ * co-processor), so there are no timer interrupts to protect.
+ * FastLED.show() can be called directly at any time.
+ */
+void safeShow() {
+  FastLED.show();
+}
