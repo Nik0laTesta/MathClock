@@ -7,6 +7,9 @@ On there I will also explain some more about why you should use certain material
 The foto's are still a work in progress. Apart from a few minor tweaks the code seems good. 
 I am currently still waiting for some plexiglass dark panel samples to test over the leds and then we can stick it all together.
 
+
+![Math Clock](Math.png)
+
 ## Features
 
 ### Clock Display
