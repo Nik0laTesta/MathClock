@@ -1,6 +1,11 @@
 # LED Matrix Math Clock
 
 A custom Arduino-based clock that displays the time as math equations on a 15×5 WS2812B LED matrix, with built-in games, birthday celebrations, and IR remote control.
+Everything was 3D printed and designed by me.
+The exact components list, materials, code and models will soon be available on cults3D.com
+On there I will also explain some more about why you should use certain materials because I learned the hard way some materials just dont play nice together. 
+The foto's are still a work in progress. Apart from a few minor tweaks the code seems good. 
+I am currently still waiting for some plexiglass dark panel samples to test over the leds and then we can stick it all together.
 
 ## Features
 
